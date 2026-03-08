@@ -1,0 +1,106 @@
+{% extends "kadry/base.html" %}
+{% load kadry_tags %}
+
+{% block title %}{{ module_name }} – Spolka App{% endblock %}
+
+{% block content %}
+<div class="list-view">
+    <!-- Nagłówek modułu -->
+    <div class="list-header">
+        <h1 class="list-title">{{ module_name }}</h1>
+    </div>
+
+    <!-- Panel filtrów -->
+    <div class="filters-panel">
+        <div class="filters-title">Filtry</div>
+        <form method="get" class="filters-form" id="filtersForm">
+            <div class="filters-grid">
+                {% for key, label in columns %}
+                {% if key in filters %}
+                <div class="filter-group">
+                    <label class="filter-label" for="filter_{{ key }}">{{ label }}:</label>
+                    <input type="text" id="filter_{{ key }}" name="{{ key }}" value="{{ filters|get_item:key }}"
+                        class="filter-input">
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            <div class="filters-actions">
+                <button type="submit" class="btn btn-filter">🔍 Filtruj</button>
+                <a href="?" class="btn btn-reset">↺ Wyczyść</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Paginacja górna -->
+    <div class="pagination-bar">
+        <span class="pagination-info">
+            Strona {{ objects.number }} z {{ objects.paginator.num_pages }}
+            &nbsp;|&nbsp;
+            Wyświetlono {{ objects.start_index }}-{{ objects.end_index }} z {{ objects.paginator.count }}
+        </span>
+        <div class="pagination-links">
+            {% if objects.has_previous %}
+            <a href="?strona={{ objects.previous_page_number }}" class="btn btn-sm">◀ Poprz.</a>
+            {% endif %}
+            {% if objects.has_next %}
+            <a href="?strona={{ objects.next_page_number }}" class="btn btn-sm">Nast. ▶</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Tabela danych -->
+    <div class="table-container">
+        <table class="data-table" id="dataTable">
+            <thead>
+                <tr>
+                    <th class="col-lp">#</th>
+                    {% for key, label in columns %}
+                    <th>{{ label }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for obj in objects %}
+                <tr class="data-row" data-url="{% url detail_url_name pk=obj.pk %}"
+                    title="Kliknij dwukrotnie, aby otworzyć">
+                    <td class="col-lp">{{ forloop.counter0|add:objects.start_index }}</td>
+                    {% for key, label in columns %}
+                    <td>{{ obj|attr:key }}</td>
+                    {% endfor %}
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="{{ columns|length|add:1 }}" class="empty-row">
+                        Brak danych do wyświetlenia
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pasek akcji dolny -->
+    <div class="action-bar">
+        <a href="{% url create_url_name %}" class="btn btn-add">➕ Dodaj</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Podwójne kliknięcie na wiersz → przejście do szczegółów
+    document.querySelectorAll('.data-row').forEach(function (row) {
+        row.addEventListener('dblclick', function () {
+            window.location.href = this.dataset.url;
+        });
+    });
+
+    // Uzupełnienie wartości filtrów z GET params
+    const params = new URLSearchParams(window.location.search);
+    document.querySelectorAll('.filter-input').forEach(function (input) {
+        const val = params.get(input.name);
+        if (val) input.value = val;
+    });
+</script>
+{% endblock %}

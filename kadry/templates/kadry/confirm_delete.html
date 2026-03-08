@@ -1,0 +1,24 @@
+{% extends "kadry/base.html" %}
+
+{% block title %}Usuń {{ module_name }} – Spolka App{% endblock %}
+
+{% block content %}
+<div class="detail-view">
+    <div class="detail-header">
+        <h1 class="detail-title">Potwierdzenie usunięcia</h1>
+    </div>
+
+    <div class="confirm-delete">
+        <div class="confirm-message">
+            <p>Czy na pewno chcesz usunąć <strong>{{ module_name }}</strong>:</p>
+            <p class="confirm-object-name">{{ object }}</p>
+        </div>
+
+        <form method="post" class="confirm-actions">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">🗑️ Tak, usuń</button>
+            <a href="{% url list_url_name %}" class="btn btn-cancel">✕ Anuluj</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

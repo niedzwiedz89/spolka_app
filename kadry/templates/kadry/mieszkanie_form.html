@@ -1,0 +1,41 @@
+{% extends "kadry/base.html" %}
+
+{% block title %}{{ module_name }} – Spolka App{% endblock %}
+
+{% block content %}
+<div class="detail-view">
+    <div class="detail-header">
+        <h1 class="detail-title">{{ module_name }}</h1>
+    </div>
+
+    <form method="post" class="detail-form">
+        {% csrf_token %}
+
+        <div class="form-section">
+            <div class="form-grid">
+                {% for field in form %}
+                <div class="form-group {% if field.errors %}has-error{% endif %}">
+                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}:</label>
+                    {{ field }}
+                    {% if field.errors %}
+                    <div class="form-error">{{ field.errors.0 }}</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Pasek akcji -->
+        <div class="form-actions">
+            {% if object %}
+            <a href="{% url 'mieszkanie_create' %}" class="btn btn-new">🆕 Nowy</a>
+            {% endif %}
+            <button type="submit" class="btn btn-save">💾 Zapisz</button>
+            <a href="{% url list_url_name %}" class="btn btn-cancel">✕ Koniec</a>
+            {% if object %}
+            <a href="{% url 'mieszkanie_delete' pk=object.pk %}" class="btn btn-danger">🗑️ Usuń</a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+{% endblock %}

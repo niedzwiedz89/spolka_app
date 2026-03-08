@@ -1,0 +1,165 @@
+{% extends "kadry/base.html" %}
+
+{% block title %}{{ module_name }} – Spolka App{% endblock %}
+
+{% block content %}
+<div class="detail-view">
+    <div class="detail-header">
+        <h1 class="detail-title">{{ module_name }}</h1>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="detail-form">
+        {% csrf_token %}
+
+        <div class="form-section">
+            <div class="form-grid">
+                {% for field in form %}
+                <div class="form-group {% if field.errors %}has-error{% endif %}">
+                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}:</label>
+                    {{ field }}
+                    {% if field.errors %}
+                    <div class="form-error">{{ field.errors.0 }}</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Pasek akcji -->
+        <div class="form-actions">
+            {% if object %}
+            <a href="{% url 'pracownik_create' %}" class="btn btn-new">🆕 Nowy</a>
+            {% endif %}
+            <button type="submit" class="btn btn-save">💾 Zapisz</button>
+            <a href="{% url list_url_name %}" class="btn btn-cancel">✕ Koniec</a>
+            {% if object %}
+            <a href="{% url 'pracownik_delete' pk=object.pk %}" class="btn btn-danger">🗑️ Usuń</a>
+            {% endif %}
+        </div>
+    </form>
+
+    {% if object %}
+    <!-- Sekcja: Przypisane budowy -->
+    <div class="form-section" style="margin-top: 2rem;">
+        <h2 class="section-title">Przypisane budowy</h2>
+        {% if przypisania %}
+        <table class="data-table sub-table">
+            <thead>
+                <tr>
+                    <th>Budowa</th>
+                    <th>Data od</th>
+                    <th>Data do</th>
+                    <th>Akcje</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in przypisania %}
+                <tr>
+                    <td>{{ p.budowa }}</td>
+                    <td>{{ p.data_od|default:"-" }}</td>
+                    <td>{{ p.data_do|default:"-" }}</td>
+                    <td>
+                        <form method="post" action="{% url 'przypisanie_delete' pk=p.pk %}" style="display:inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-danger" title="Usuń przypisanie">✕</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="empty-text">Brak przypisań do budów.</p>
+        {% endif %}
+
+        <!-- Formularz dodawania przypisania -->
+        <details class="inline-form-toggle">
+            <summary class="btn btn-sm btn-add">➕ Przypisz do budowy</summary>
+            <form method="post" action="{% url 'przypisanie_create' pracownik_pk=object.pk %}" class="inline-form">
+                {% csrf_token %}
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Budowa:</label>
+                        {{ przypisanie_form.budowa }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Data od:</label>
+                        {{ przypisanie_form.data_od }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Data do:</label>
+                        {{ przypisanie_form.data_do }}
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-add">Przypisz</button>
+            </form>
+        </details>
+    </div>
+    {% endif %}
+
+    {% if object %}
+    <!-- Sekcja: Załączniki -->
+    <div class="form-section" style="margin-top: 2rem;">
+        <h2 class="section-title">Dokumenty i załączniki (skany, podpis itp.)</h2>
+        {% if zalaczniki %}
+        <table class="data-table sub-table">
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Typ załącznika</th>
+                    <th>Plik</th>
+                    <th>Opis</th>
+                    <th>Akcje</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for z in zalaczniki %}
+                <tr>
+                    <td>{{ z.data_dodania|date:"Y-m-d H:i" }}</td>
+                    <td>{{ z.get_typ_dokumentu_display }}</td>
+                    <td><a href="{{ z.plik.url }}" target="_blank"
+                            style="color: #0066cc; text-decoration: underline;">{{ z.plik.name|truncatechars:40 }}</a>
+                    </td>
+                    <td>{{ z.opis|default:"-" }}</td>
+                    <td>
+                        <form method="post" action="{% url 'zalacznik_delete' pk=z.pk %}" style="display:inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-danger" title="Usuń plik całkowicie"
+                                onclick="return confirm('Trwale usunąć ten plik ze serwera?');">✕</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="empty-text">Brak wgranych załączników.</p>
+        {% endif %}
+
+        <details class="inline-form-toggle">
+            <summary class="btn btn-sm btn-add">📎 Wgraj plik</summary>
+            <form method="post"
+                action="{% url 'zalacznik_create' content_type_id=content_type_id object_id=object.pk %}"
+                enctype="multipart/form-data" class="inline-form">
+                {% csrf_token %}
+                <div class="form-grid">
+                    <div class="form-group form-group-wide">
+                        <label class="form-label">Wybierz plik z komputera:</label>
+                        {{ zalacznik_form.plik }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Typ dokumentu:</label>
+                        {{ zalacznik_form.typ_dokumentu }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Dodatkowy opis:</label>
+                        {{ zalacznik_form.opis }}
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-add">📤 Wyślij plik</button>
+            </form>
+        </details>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

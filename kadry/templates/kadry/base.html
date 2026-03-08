@@ -1,0 +1,47 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Spolka App{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'kadry/css/style.css' %}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="top-bar">
+        <div class="top-bar-left">
+            <a href="{% url 'dashboard' %}" class="logo">
+                <span class="logo-icon">🏗️</span>
+                <span class="logo-text">Spolka App</span>
+            </a>
+        </div>
+        <nav class="top-bar-nav">
+            <a href="{% url 'pracownik_list' %}" class="nav-link {% if 'pracowni' in request.path %}active{% endif %}">Pracownicy</a>
+            <a href="{% url 'budowa_list' %}" class="nav-link {% if 'budowy' in request.path %}active{% endif %}">Budowy</a>
+            <a href="{% url 'mieszkanie_list' %}" class="nav-link {% if 'mieszkani' in request.path %}active{% endif %}">Mieszkania</a>
+            <a href="{% url 'pojazd_list' %}" class="nav-link {% if 'flota' in request.path %}active{% endif %}">Flota</a>
+        </nav>
+    </header>
+
+    {% if messages %}
+    <div class="messages-container">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+            {{ message }}
+            <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script src="{% static 'kadry/js/app.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
