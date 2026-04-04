@@ -111,6 +111,9 @@ def pracownik_list(request):
         "detail_url_name": "pracownik_detail",
         "create_url_name": "pracownik_create",
         "delete_url_name": "pracownik_delete",
+        "bulk_actions": [
+            {"id": "example_action", "label": "Przykładowa akcja (test)", "url": "#"}
+        ],
     }
     return render(request, "kadry/list.html", context)
 

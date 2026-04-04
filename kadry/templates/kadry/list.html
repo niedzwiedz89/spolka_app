@@ -6,8 +6,20 @@
 {% block content %}
 <div class="list-view">
     <!-- Nagłówek modułu -->
-    <div class="list-header">
+    <div class="list-header" style="display: flex; justify-content: space-between; align-items: center;">
         <h1 class="list-title">{{ module_name }}</h1>
+        {% if bulk_actions %}
+        <div class="bulk-actions-menu">
+            <button class="btn btn-gear" id="bulkActionsBtn" aria-haspopup="true" aria-expanded="false" title="Akcje masowe dla zaznaczonych elementów">
+                ⚙️
+            </button>
+            <div class="dropdown-menu" id="bulkActionsDropdown" style="display: none;">
+                {% for action in bulk_actions %}
+                <a href="#" class="dropdown-item bulk-action-item" data-action-id="{{ action.id }}">{{ action.label }}</a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
     </div>
 
     <!-- Panel filtrów -->
@@ -54,6 +66,9 @@
         <table class="data-table" id="dataTable">
             <thead>
                 <tr>
+                    {% if bulk_actions %}
+                    <th class="col-checkbox"><input type="checkbox" id="selectAllCheckbox" title="Zaznacz wszystkie"></th>
+                    {% endif %}
                     <th class="col-lp">#</th>
                     {% for key, label in columns %}
                     <th>{{ label }}</th>
@@ -64,6 +79,11 @@
                 {% for obj in objects %}
                 <tr class="data-row" data-url="{% url detail_url_name pk=obj.pk %}"
                     title="Kliknij dwukrotnie, aby otworzyć">
+                    {% if bulk_actions %}
+                    <td class="col-checkbox" onclick="event.stopPropagation();">
+                        <input type="checkbox" class="row-checkbox" value="{{ obj.pk }}">
+                    </td>
+                    {% endif %}
                     <td class="col-lp">{{ forloop.counter0|add:objects.start_index }}</td>
                     {% for key, label in columns %}
                     <td>{{ obj|attr:key }}</td>
@@ -103,4 +123,125 @@
         if (val) input.value = val;
     });
 </script>
+
+{% if bulk_actions %}
+<script>
+    // Zaznacz lub odznacz wszystkie checkboxy na stronie
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    const rowCheckboxes = document.querySelectorAll('.row-checkbox');
+    
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            rowCheckboxes.forEach(cb => {
+                cb.checked = selectAllCheckbox.checked;
+            });
+        });
+    }
+
+    // Obsługa rozwijania menu (kółka zębatego)
+    const bulkActionsBtn = document.getElementById('bulkActionsBtn');
+    const bulkActionsDropdown = document.getElementById('bulkActionsDropdown');
+    
+    if (bulkActionsBtn) {
+        bulkActionsBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const isOpen = bulkActionsDropdown.style.display === 'block';
+            bulkActionsDropdown.style.display = isOpen ? 'none' : 'block';
+        });
+
+        // Zamknięcie menu po kliknięciu poza jego obszarem
+        document.addEventListener('click', function(e) {
+            if (!bulkActionsBtn.contains(e.target) && !bulkActionsDropdown.contains(e.target)) {
+                bulkActionsDropdown.style.display = 'none';
+            }
+        });
+    }
+
+    // Obsługa kliknięcia konkretnej akcji masowej
+    document.querySelectorAll('.bulk-action-item').forEach(item => {
+        item.addEventListener('click', function(e) {
+            e.preventDefault();
+            bulkActionsDropdown.style.display = 'none';
+            
+            // Pobranie id zaznaczonych elementów
+            const selectedIds = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.value);
+            
+            if (selectedIds.length === 0) {
+                alert('Najpierw zaznacz przynajmniej jeden element na liście, aby wykonać akcję masową.');
+                return;
+            }
+            
+            const actionLabel = this.textContent;
+            if (confirm(`Testowa inicjalizacja akcji masowej:\nZażądano wykonania: "${actionLabel}"\nDla następujących ID: ${selectedIds.join(', ')}\n\nW przyszłości zostanie tu zaimplementowane wywołanie asynchroniczne (POST).`)) {
+                // Tutaj znajdzie się w przyszłości np. żądanie fetch().
+            }
+        });
+    });
+</script>
+
+<style>
+    /* Styling menu "Zębatki" dla akcji masowych */
+    .bulk-actions-menu {
+        position: relative;
+        display: inline-block;
+        margin-left: 15px;
+    }
+    .btn-gear {
+        background: none;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        padding: 5px 12px;
+        font-size: 1.2rem;
+        cursor: pointer;
+        background-color: #f9f9f9;
+        transition: background-color 0.2s;
+    }
+    .btn-gear:hover {
+        background-color: #ececec;
+    }
+    .dropdown-menu {
+        position: absolute;
+        top: 100%;
+        right: 0;
+        background-color: white;
+        min-width: 220px;
+        box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+        z-index: 1000;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        margin-top: 5px;
+    }
+    .dropdown-item {
+        color: #333;
+        padding: 12px 16px;
+        text-decoration: none;
+        display: block;
+        font-size: 14px;
+        border-bottom: 1px solid #f1f1f1;
+    }
+    .dropdown-item:last-child {
+        border-bottom: none;
+    }
+    .dropdown-item:hover {
+        background-color: #f5f5f5;
+        color: #007bff;
+    }
+    /* Modyfikacja kolumny z checkboxem */
+    .col-checkbox {
+        width: 40px;
+        text-align: center;
+        vertical-align: middle;
+    }
+    .row-checkbox, #selectAllCheckbox {
+        cursor: pointer;
+        /* Można tu jeszcze ostylować wygląd samego checkboxa jeśli jest taka potrzeba */
+    }
+    /* Nagłówek może potrzebować odrobiny elastyczności obok tytułu */
+    .list-header {
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 10px;
+        margin-bottom: 20px;
+    }
+</style>
+{% endif %}
 {% endblock %}
