@@ -7,7 +7,10 @@ register = template.Library()
 def attr(obj, name):
     """Pobiera atrybut obiektu po nazwie, np. {{ obj|attr:'imie' }}"""
     try:
-        return getattr(obj, name, "")
+        val = getattr(obj, name, "")
+        if callable(val):
+            return val()
+        return val
     except Exception:
         return ""
 @register.filter

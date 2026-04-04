@@ -5,6 +5,13 @@ from django.contrib.contenttypes.models import ContentType
 
 class Pracownik(models.Model):
     """Pracownik firmy."""
+    STATUS_CHOICES = [
+        ("nieokreslona", "Umowa nieokreślona"),
+        ("okreslona", "Umowa określona"),
+        ("probna", "Umowa próbna"),
+        ("rezygnacja", "Rezygnacja / Zwolniony"),
+    ]
+
     imie = models.CharField("Imię", max_length=100)
     nazwisko = models.CharField("Nazwisko", max_length=100)
     pesel = models.CharField("PESEL", max_length=11, unique=True)
@@ -13,6 +20,27 @@ class Pracownik(models.Model):
     email = models.EmailField("E-mail", blank=True)
     dowod_osobisty = models.CharField("Dowód osobisty", max_length=20, blank=True)
     telefon = models.CharField("Telefon", max_length=20, blank=True)
+    
+    # Nowe pola ze statusami i datami
+    status = models.CharField("Status pracownika", max_length=20, choices=STATUS_CHOICES, default="nieokreslona")
+    
+    umowa_probna_od = models.DateField("Umowa próbna (od)", null=True, blank=True)
+    umowa_probna_do = models.DateField("Umowa próbna (do)", null=True, blank=True)
+    
+    umowa_okreslona_od = models.DateField("Umowa określona (od)", null=True, blank=True)
+    umowa_okreslona_do = models.DateField("Umowa określona (do)", null=True, blank=True)
+    
+    a1_od = models.DateField("Aktualna A1 (od)", null=True, blank=True)
+    a1_do = models.DateField("Aktualna A1 (do)", null=True, blank=True)
+    
+    ekuz_od = models.DateField("EKUZ (od)", null=True, blank=True)
+    ekuz_do = models.DateField("EKUZ (do)", null=True, blank=True)
+    
+    badania_od = models.DateField("Badania (od)", null=True, blank=True)
+    badania_do = models.DateField("Badania (do)", null=True, blank=True)
+    
+    opis = models.TextField("Dodatkowy opis", blank=True)
+
     data_utworzenia = models.DateTimeField("Data utworzenia", auto_now_add=True)
 
     class Meta:

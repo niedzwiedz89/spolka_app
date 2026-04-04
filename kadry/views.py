@@ -104,6 +104,7 @@ def pracownik_list(request):
             ("imie", "Imię"),
             ("nazwisko", "Nazwisko"),
             ("pesel", "PESEL"),
+            ("get_status_display", "Status"),
             ("telefon", "Telefon"),
             ("email", "E-mail"),
             ("dowod_osobisty", "Dowód osobisty"),

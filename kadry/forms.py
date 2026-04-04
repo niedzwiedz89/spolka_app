@@ -6,18 +6,34 @@ class PracownikForm(forms.ModelForm):
     class Meta:
         model = Pracownik
         fields = [
-            "imie", "nazwisko", "pesel", "ulica_nr",
-            "kod_pocztowy", "email", "dowod_osobisty", "telefon",
+            "imie", "nazwisko", "pesel", "status", "ulica_nr",
+            "kod_pocztowy", "email", "telefon", "dowod_osobisty",
+            "umowa_probna_od", "umowa_probna_do",
+            "umowa_okreslona_od", "umowa_okreslona_do",
+            "a1_od", "a1_do", "ekuz_od", "ekuz_do",
+            "badania_od", "badania_do", "opis"
         ]
         widgets = {
             "imie": forms.TextInput(attrs={"class": "form-input"}),
             "nazwisko": forms.TextInput(attrs={"class": "form-input"}),
             "pesel": forms.TextInput(attrs={"class": "form-input", "maxlength": "11"}),
+            "status": forms.Select(attrs={"class": "form-input"}),
             "ulica_nr": forms.TextInput(attrs={"class": "form-input"}),
             "kod_pocztowy": forms.TextInput(attrs={"class": "form-input", "placeholder": "00-000"}),
             "email": forms.EmailInput(attrs={"class": "form-input"}),
             "dowod_osobisty": forms.TextInput(attrs={"class": "form-input"}),
             "telefon": forms.TextInput(attrs={"class": "form-input"}),
+            "umowa_probna_od": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
+            "umowa_probna_do": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
+            "umowa_okreslona_od": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
+            "umowa_okreslona_do": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
+            "a1_od": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
+            "a1_do": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
+            "ekuz_od": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
+            "ekuz_do": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
+            "badania_od": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
+            "badania_do": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
+            "opis": forms.Textarea(attrs={"class": "form-input", "rows": 3, "placeholder": "Ogólne informacje dodatkowe..."}),
         }
 
 
