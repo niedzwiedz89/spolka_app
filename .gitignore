@@ -11,3 +11,5 @@ media/
 *.pyc
 
 __pycache__/
+
+docker-compose.yml
