@@ -9,13 +9,14 @@
     <div class="list-header" style="display: flex; justify-content: space-between; align-items: center;">
         <h1 class="list-title">{{ module_name }}</h1>
         {% if bulk_actions %}
-        <div class="bulk-actions-menu">
+        <div style="display: none;">{% csrf_token %}</div>
+        <div class="bulk-actions-menu" style="display: flex; gap: 10px; align-items: center;">
             <button class="btn btn-gear" id="bulkActionsBtn" aria-haspopup="true" aria-expanded="false" title="Akcje masowe dla zaznaczonych elementów">
                 ⚙️
             </button>
-            <div class="dropdown-menu" id="bulkActionsDropdown" style="display: none;">
+            <div class="dropdown-menu" id="bulkActionsDropdown" style="display: none; top: 100%; right: 0;">
                 {% for action in bulk_actions %}
-                <a href="#" class="dropdown-item bulk-action-item" data-action-id="{{ action.id }}">{{ action.label }}</a>
+                <a href="#" class="dropdown-item bulk-action-item" data-action-id="{{ action.id }}" {% if action.url %}data-action-url="{{ action.url }}"{% endif %}>{{ action.label }}</a>
                 {% endfor %}
             </div>
         </div>
@@ -105,6 +106,23 @@
         <a href="{% url create_url_name %}" class="btn btn-add">➕ Dodaj</a>
     </div>
 </div>
+
+{% if bulk_actions %}
+<!-- Modal do wyboru miesiąca -->
+<div id="reportMonthModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="modal-close" id="closeModalBtn">&times;</span>
+        <h2 style="margin-bottom: 15px; font-size: 1.15rem; font-weight: 600; color: var(--primary);">Opcje raportu</h2>
+        <div class="form-group">
+            <label class="form-label" for="modalMonthPicker">Wybierz miesiąc rozliczeniowy:</label>
+            <input type="month" id="modalMonthPicker" class="form-input">
+        </div>
+        <div style="margin-top: 20px; text-align: right;">
+            <button type="button" class="btn btn-save" id="modalSubmitBtn">Generuj 📊</button>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}
@@ -172,14 +190,87 @@
             }
             
             const actionLabel = this.textContent;
-            if (confirm(`Testowa inicjalizacja akcji masowej:\nZażądano wykonania: "${actionLabel}"\nDla następujących ID: ${selectedIds.join(', ')}\n\nW przyszłości zostanie tu zaimplementowane wywołanie asynchroniczne (POST).`)) {
-                // Tutaj znajdzie się w przyszłości np. żądanie fetch().
+            const actionUrl = this.dataset.actionUrl;
+            
+            if (actionUrl) {
+                // Pokazujemy Modal
+                const modal = document.getElementById('reportMonthModal');
+                const dzisiaj = new Date();
+                const mm = String(dzisiaj.getMonth() + 1).padStart(2, '0');
+                const yy = dzisiaj.getFullYear();
+                document.getElementById('modalMonthPicker').value = `${yy}-${mm}`;
+                
+                modal.style.display = 'flex';
+                
+                // Przypisanie zdarzenia dla przycisku po zatwierdzeniu okienka
+                const submitBtn = document.getElementById('modalSubmitBtn');
+                submitBtn.onclick = function() {
+                    const monthVal = document.getElementById('modalMonthPicker').value;
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = actionUrl;
+                    
+                    const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value;
+                    if (csrfToken) {
+                        const csrfInput = document.createElement('input');
+                        csrfInput.type = 'hidden';
+                        csrfInput.name = 'csrfmiddlewaretoken';
+                        csrfInput.value = csrfToken;
+                        form.appendChild(csrfInput);
+                    }
+
+                    const monthInput = document.createElement('input');
+                    monthInput.type = 'hidden';
+                    monthInput.name = 'raport_miesiac';
+                    monthInput.value = monthVal;
+                    form.appendChild(monthInput);
+
+                    selectedIds.forEach(id => {
+                        const idInput = document.createElement('input');
+                        idInput.type = 'hidden';
+                        idInput.name = 'pracownik_ids';
+                        idInput.value = id;
+                        form.appendChild(idInput);
+                    });
+
+                    document.body.appendChild(form);
+                    form.submit();
+                    modal.style.display = 'none';
+                };
+
+                // Zamykanie modala ze znaku X lub tła
+                document.getElementById('closeModalBtn').onclick = function() {
+                    modal.style.display = 'none';
+                };
+                modal.onclick = function(e) {
+                    if (e.target === modal) modal.style.display = 'none';
+                };
+                
+            } else {
+                if (confirm(`Testowa inicjalizacja akcji masowej:\nZażądano wykonania: "${actionLabel}"\nDla następujących ID: ${selectedIds.join(', ')}\n\nW przyszłości zostanie tu zaimplementowane wywołanie asynchroniczne (POST).`)) {
+                    // Tutaj znajdzie się w przyszłości np. żądanie fetch().
+                }
             }
         });
     });
 </script>
 
 <style>
+    /* Styling pod okienko Modal */
+    .modal {
+        position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%;
+        background-color: rgba(0,0,0,0.4);
+        display: none; justify-content: center; align-items: center;
+    }
+    .modal-content {
+        background-color: var(--bg-card); padding: 25px; border-radius: var(--radius-lg);
+        width: 350px; max-width: 90%; box-shadow: var(--shadow-lg); position: relative;
+    }
+    .modal-close {
+        position: absolute; top: 10px; right: 15px; font-size: 24px; cursor: pointer; color: var(--text-muted);
+    }
+    .modal-close:hover { color: var(--text-primary); }
+
     /* Styling menu "Zębatki" dla akcji masowych */
     .bulk-actions-menu {
         position: relative;

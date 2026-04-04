@@ -8,6 +8,7 @@ urlpatterns = [
     # Pracownicy
     path("pracownicy/", views.pracownik_list, name="pracownik_list"),
     path("pracownicy/nowy/", views.pracownik_create, name="pracownik_create"),
+    path("pracownicy/raport-budowy/", views.pracownik_raport_budowy, name="pracownik_raport_budowy"),
     path("pracownicy/<int:pk>/", views.pracownik_detail, name="pracownik_detail"),
     path("pracownicy/<int:pk>/usun/", views.pracownik_delete, name="pracownik_delete"),
 

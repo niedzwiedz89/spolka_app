@@ -1,9 +1,15 @@
 from django.shortcuts import render, get_object_or_404, redirect
+from django.urls import reverse
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.contrib import messages as django_messages
 from django.contrib.contenttypes.models import ContentType
-
+from django.http import HttpResponse
+import io
+import calendar
+from datetime import date
+import openpyxl
+from openpyxl.styles import Font, Alignment, PatternFill
 from .models import Pracownik, Budowa, PracownikBudowa, Mieszkanie, Pojazd, ZdarzenieFloty, Zalacznik
 from .forms import (
     PracownikForm, BudowaForm, PracownikBudowaForm,
@@ -113,10 +119,138 @@ def pracownik_list(request):
         "create_url_name": "pracownik_create",
         "delete_url_name": "pracownik_delete",
         "bulk_actions": [
-            {"id": "example_action", "label": "Przykładowa akcja (test)", "url": "#"}
+            {
+                "id": "raport_obecnosci",
+                "label": "📊 Generuj raport obecności (Excel)",
+                "url": reverse("pracownik_raport_budowy")
+            }
         ],
     }
     return render(request, "kadry/list.html", context)
+
+
+def pracownik_raport_budowy(request):
+    """Widok obsługujący POST z masowej akcji generowania raportu budów."""
+    if request.method == "POST":
+        pracownik_ids = request.POST.getlist("pracownik_ids")
+        miesiac_str = request.POST.get("raport_miesiac") # Np. 2026-02
+
+        if not pracownik_ids:
+            django_messages.error(request, "Nie wybrano żadnych pracowników.")
+            return redirect("pracownik_list")
+
+        # Ustalenie roku i miesiąca
+        try:
+            year, month = map(int, miesiac_str.split('-'))
+        except (ValueError, AttributeError):
+            dzisiaj = date.today()
+            year, month = dzisiaj.year, dzisiaj.month
+
+        _, num_days = calendar.monthrange(year, month)
+        start_date = date(year, month, 1)
+        end_date = date(year, month, num_days)
+
+        pracownicy = list(Pracownik.objects.filter(pk__in=pracownik_ids).order_by("nazwisko", "imie"))
+        if not pracownicy:
+            django_messages.error(request, "Brak pasujących pracowników w bazie.")
+            return redirect("pracownik_list")
+
+        # Pobieramy przypisania z wybranego miesiąca
+        # Przypisanie musi trwać (data_od <= end_date) oraz nie może się kończyć przed początkiem (data_do >= start_date albo null)
+        przypisania = PracownikBudowa.objects.filter(
+            pracownik__in=pracownicy,
+            data_od__lte=end_date
+        ).filter(
+            Q(data_do__isnull=True) | Q(data_do__gte=start_date)
+        ).select_related("budowa")
+
+        # Mapujemy dni dla każdego pracownika
+        m = {p.id: {} for p in pracownicy}
+        for przyp in przypisania:
+            p_id = przyp.pracownik.id
+            # określamy ramy w obrębie danego miesiąca
+            od = max(przyp.data_od, start_date) if przyp.data_od else start_date
+            do = min(przyp.data_do, end_date) if przyp.data_do else end_date
+            
+            for d in range(od.day, do.day + 1):
+                # Jeśli jest kilka budów jednego dnia, dopiszemy lub weźmiemy pierwszą
+                if d not in m[p_id]:
+                    m[p_id][d] = przyp.budowa.nazwa
+                else:
+                    if przyp.budowa.nazwa not in m[p_id][d]:
+                        m[p_id][d] += f", {przyp.budowa.nazwa}"
+
+        # --- Tworzenie pliku Excel ---
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = f"Raport {month:02d}.{year}"
+
+        # Style wg życzenia użytkownika
+        header_font = Font(bold=True)
+        center_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        gray_fill = PatternFill(start_color="F5F5F5", end_color="F5F5F5", fill_type="solid")
+
+        # 1. Nagłówek Pierwszy Wiersz
+        ws.cell(row=1, column=1, value="Data\nDatum").font = header_font
+        ws.cell(row=1, column=1).alignment = center_align
+
+        # Konfigurujemy pracownikow (2 kolumny na pracownika)
+        col_idx = 2
+        for p in pracownicy:
+            ws.cell(row=1, column=col_idx, value=f"{p.nazwisko} {p.imie}").font = header_font
+            ws.cell(row=1, column=col_idx).alignment = center_align
+            
+            ws.cell(row=1, column=col_idx+1, value="Budowa\nBau-Site").font = header_font
+            ws.cell(row=1, column=col_idx+1).alignment = center_align
+            
+            # Wymiary
+            ws.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = 12  # Godziny/Pracownik
+            ws.column_dimensions[openpyxl.utils.get_column_letter(col_idx+1)].width = 16 # Budowa
+            
+            col_idx += 2
+
+        ws.column_dimensions['A'].width = 12
+
+        # 2. Wiersze z datami w danym miesiącu
+        current_row = 2
+        for day in range(1, num_days + 1):
+            ws.cell(row=current_row, column=1, value=f"{day}.{month:02d}.{year}")
+            
+            # Dla każdego pracownika odpytujemy mape
+            col_idx = 2
+            for p in pracownicy:
+                # column col_idx to GODZINY - pozostawiamy wolne miejsce by użytkownik wpisał RĘCZNIE potem zero np. D35
+                # column col_idx+1 to BUDOWA - wrzucamy Prüm
+                nazwa_budowy = m[p.id].get(day, "")
+                if nazwa_budowy:
+                    ws.cell(row=current_row, column=col_idx+1, value=nazwa_budowy)
+                col_idx += 2
+                
+            current_row += 1
+
+        # 3. Podsumowanie na samym dole (gdzie user trzyma sume z excela)
+        # Np 3 rzędy puste jak na screnie po dniach. Dajemy 3 oczka nizej Sumy
+        sum_row = current_row + 2
+        col_idx = 2
+        for p in pracownicy:
+            # Wstawienie na twardo 0.00 w polu godzin jak pokazane we wsadzie graficznym uzytkownika row 35
+            ws.cell(row=sum_row, column=col_idx, value="0.00").alignment = center_align
+            ws.cell(row=sum_row, column=col_idx).fill = gray_fill
+            col_idx += 2
+
+        # Zapis i przygotowanie do wysłania
+        file_bytes = io.BytesIO()
+        wb.save(file_bytes)
+        file_bytes.seek(0)
+
+        response = HttpResponse(
+            file_bytes.read(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        response["Content-Disposition"] = f'attachment; filename="RaportBudowy_{month:02d}_{year}.xlsx"'
+        return response
+
+    return redirect("pracownik_list")
 
 
 def pracownik_detail(request, pk):
