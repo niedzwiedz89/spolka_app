@@ -7,7 +7,7 @@ class PracownikForm(forms.ModelForm):
         model = Pracownik
         fields = [
             "imie", "nazwisko", "pesel", "status", "ulica_nr",
-            "kod_pocztowy", "email", "telefon", "dowod_osobisty",
+            "kod_pocztowy", "miejscowosc", "email", "telefon", "dowod_osobisty",
             "umowa_probna_od", "umowa_probna_do",
             "umowa_okreslona_od", "umowa_okreslona_do",
             "a1_od", "a1_do", "ekuz_od", "ekuz_do",
@@ -20,6 +20,7 @@ class PracownikForm(forms.ModelForm):
             "status": forms.Select(attrs={"class": "form-input"}),
             "ulica_nr": forms.TextInput(attrs={"class": "form-input"}),
             "kod_pocztowy": forms.TextInput(attrs={"class": "form-input", "placeholder": "00-000"}),
+            "miejscowosc": forms.TextInput(attrs={"class": "form-input"}),
             "email": forms.EmailInput(attrs={"class": "form-input"}),
             "dowod_osobisty": forms.TextInput(attrs={"class": "form-input"}),
             "telefon": forms.TextInput(attrs={"class": "form-input"}),

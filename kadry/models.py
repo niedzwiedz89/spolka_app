@@ -17,6 +17,7 @@ class Pracownik(models.Model):
     pesel = models.CharField("PESEL", max_length=11, unique=True)
     ulica_nr = models.CharField("Ulica i nr", max_length=200, blank=True)
     kod_pocztowy = models.CharField("Kod pocztowy", max_length=10, blank=True)
+    miejscowosc = models.CharField("Miejscowość", max_length=150, blank=True)
     email = models.EmailField("E-mail", blank=True)
     dowod_osobisty = models.CharField("Dowód osobisty", max_length=20, blank=True)
     telefon = models.CharField("Telefon", max_length=20, blank=True)
