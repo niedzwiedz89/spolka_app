@@ -83,9 +83,10 @@ class Command(BaseCommand):
                     if part.get('filename') and part['filename'].lower().endswith(('.xls', '.xlsx')):
                         filename = part['filename']
                         filepath = os.path.join(save_dir, filename)
+                        arch_filepath = os.path.join(save_dir, "archive", filename)
                         
-                        # Nie pobieraj, jeśli plik już masz na serwerze
-                        if os.path.exists(filepath):
+                        # Nie pobieraj, jeśli plik już masz na serwerze w kolejce lub w archiwum
+                        if os.path.exists(filepath) or os.path.exists(arch_filepath):
                             continue
                             
                         # Czasem mały excel jest w ciele wiadomości pod kluczem 'data', częściej to duży plik załącznikowy z osobnym ID

@@ -69,34 +69,35 @@ class Command(BaseCommand):
                 if len(rows) < 2:
                     continue
                 
-                # Zczytywanie nagłówków z rzędu pierwszego: (Wartości B: index 1, C: index 2 itd.)
-                headers = rows[0]
-                
                 # Słownik indeks => Model Pracownika
                 worker_columns = {}
-                # Zwykle kolumny lecą w parach, index 1 to Pracownik, index 2 to jego budowa
-                # Szukamy pracownika rzez split() np. "Szwarga Dariusz" -> ["Szwarga", "Dariusz"]
-                col_idx = 1
-                while col_idx < len(headers) - 1:
-                    h_val = str(headers[col_idx] or "").strip()
-                    if h_val:
-                        parts = h_val.split()
-                        if len(parts) >= 2:
-                            n_val = parts[0]
-                            i_val = parts[1]
+                header_row_idx = 0
+                
+                # Skanowanie pierwszych 10 wierszy w poszukiwaniu nagłówków (ignorowanie pustych wierszy z początku)
+                for h_idx, potential_header_row in enumerate(rows[:10]):
+                    temp_workers = {}
+                    col_idx = 1
+                    while col_idx < len(potential_header_row) - 1:
+                        h_val = str(potential_header_row[col_idx] or "").strip()
+                        if h_val and len(h_val.split()) >= 2:
+                            parts = h_val.split()
+                            n_val, i_val = parts[0], parts[1]
                             pr = Pracownik.objects.filter(nazwisko__iexact=n_val, imie__iexact=i_val).first()
                             if pr:
-                                # col_idx to godziny, col_idx+1 to budowa
-                                worker_columns[col_idx] = pr
-                            else:
-                                self.stdout.write(self.style.WARNING(f"Nie znaleziono w bazie pracownika z nagłówka: '{h_val}'"))
-                    col_idx += 2
+                                temp_workers[col_idx] = pr
+                        col_idx += 1  # Badamy każdą kolumnę bo struktura bywa przesunięta
+                        
+                    if len(temp_workers) > 0:
+                        worker_columns = temp_workers
+                        header_row_idx = h_idx
+                        break
 
                 if not worker_columns:
                     self.stdout.write("Nie rozpoznano żadnych pracowników w nagłówkach pliku.")
                     continue
 
-                for r_idx in range(1, len(rows)):
+                # Zczytywanie danych dopiero od wiersza pod nagłówkiem
+                for r_idx in range(header_row_idx + 1, len(rows)):
                     row = rows[r_idx]
                     
                     if not row or not row[0]:
@@ -158,10 +159,10 @@ class Command(BaseCommand):
                             else:
                                 total_updated += 1
                                 
-                # (Opcjonalnie) Przerzuć przetworzony plik do archiwum... (os.rename...) by nie zaczytywać podwójnie!
+                # (Opcjonalnie) Przerzuć przetworzony plik do archiwum... (os.replace...) by nie zaczytywać podwójnie!
                 arch_dir = os.path.join(os.path.dirname(fpath), "archive")
                 os.makedirs(arch_dir, exist_ok=True)
-                os.rename(fpath, os.path.join(arch_dir, os.path.basename(fpath)))
+                os.replace(fpath, os.path.join(arch_dir, os.path.basename(fpath)))
                 
             except Exception as e:
                 self.stderr.write(f"Błąd podczas sczytywania wierszy z pliku: {e}")
