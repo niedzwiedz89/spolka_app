@@ -13,3 +13,7 @@ media/
 __pycache__/
 
 docker-compose.yml
+
+.env
+
+keys/

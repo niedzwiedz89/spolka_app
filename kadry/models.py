@@ -84,6 +84,7 @@ class PracownikBudowa(models.Model):
     )
     data_od = models.DateField("Data od", null=True, blank=True)
     data_do = models.DateField("Data do", null=True, blank=True)
+    godziny = models.DecimalField("Liczba godzin", max_digits=6, decimal_places=2, null=True, blank=True)
 
     class Meta:
         verbose_name = "Przypisanie do budowy"

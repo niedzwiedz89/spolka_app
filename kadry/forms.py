@@ -52,11 +52,12 @@ class BudowaForm(forms.ModelForm):
 class PracownikBudowaForm(forms.ModelForm):
     class Meta:
         model = PracownikBudowa
-        fields = ["budowa", "data_od", "data_do"]
+        fields = ["budowa", "data_od", "data_do", "godziny"]
         widgets = {
             "budowa": forms.Select(attrs={"class": "form-input"}),
             "data_od": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
             "data_do": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
+            "godziny": forms.NumberInput(attrs={"class": "form-input", "step": "0.1"}),
         }
 
 
