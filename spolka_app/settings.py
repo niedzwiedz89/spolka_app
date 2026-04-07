@@ -10,7 +10,15 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+# Ładowanie zmiennych środowiskowych z pliku .env umieszczonego w głównym folderze
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -75,25 +83,26 @@ WSGI_APPLICATION = "spolka_app.wsgi.application"
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
 # --- SQLite (dev) ---
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
-}
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.sqlite3",
+#         "NAME": BASE_DIR / "db.sqlite3",
+#     }
+# }
 
 # --- PostgreSQL (prod) ---
 # Odkomentuj poniższe i zakomentuj SQLite powyżej, gdy przejdziesz na serwer:
-# DATABASES = {
-#     "default": {
-#         "ENGINE": "django.db.backends.postgresql",
-#         "NAME": "spolka_db",
-#         "USER": "spolka_user",
-#         "PASSWORD": "twoje_haslo",
-#         "HOST": "localhost",
-#         "PORT": "5432",
-#     }
-# }
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.environ.get("POSTGRES_DB", "spolka_db"),
+        "USER": os.environ.get("POSTGRES_USER", "admin"),
+        "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "zmien_mnie"),
+        # Skoro to ten sam serwer: łączysz się wewnątrz serwera na host adres 127.0.0.1:
+        "HOST": os.environ.get("DB_HOST", "127.0.0.1"), 
+        "PORT": os.environ.get("DB_PORT", "5432"),
+    }
+}
 
 
 # Password validation

@@ -17,3 +17,5 @@ docker-compose.yml
 .env
 
 keys/
+
+datadump.json
