@@ -1,3 +1,6 @@
 Django>=4.2,<5.1
 psycopg2-binary
 python-dotenv
+gunicorn
+whitenoise
+openpyxl

@@ -31,9 +31,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = "django-insecure-h7gv!vd#!fm+cbxk53v68*&s@d%pknon--oi!poymon#)svs!e"
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Tą zmienną wstrzykujemy bezpośrednio z ustawień kontenera, żeby w produkcji apka sama działała bezpieczniej
+DEBUG = os.environ.get("DEBUG", "True").lower() == "true"
 
-ALLOWED_HOSTS = []
+# Aby Docker oraz Twoje środowisko sieciowe (w tym ew. Tailscale z NGINXem) mogły odbierać zapytania sieciowe.
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "*").split(",")
 
 
 # Application definition
@@ -50,6 +52,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",  # Serwowanie plików graficznych statycznych na serwerze 
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -95,9 +98,9 @@ WSGI_APPLICATION = "spolka_app.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("POSTGRES_DB", "spolka_db"),
-        "USER": os.environ.get("POSTGRES_USER", "admin"),
-        "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "zmien_mnie"),
+        "NAME": os.environ.get("DB_NAME", "spolka_db"),
+        "USER": os.environ.get("DB_USER", "admin"),
+        "PASSWORD": os.environ.get("DB_PASSWORD", "zmien_mnie"),
         # Skoro to ten sam serwer: łączysz się wewnątrz serwera na host adres 127.0.0.1:
         "HOST": os.environ.get("DB_HOST", "127.0.0.1"), 
         "PORT": os.environ.get("DB_PORT", "5432"),
@@ -140,6 +143,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles" # Zebranie powiązanych plików statycznych przez Django pod jednym folderem
+
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
