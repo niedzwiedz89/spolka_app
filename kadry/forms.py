@@ -24,16 +24,16 @@ class PracownikForm(forms.ModelForm):
             "email": forms.EmailInput(attrs={"class": "form-input"}),
             "dowod_osobisty": forms.TextInput(attrs={"class": "form-input"}),
             "telefon": forms.TextInput(attrs={"class": "form-input"}),
-            "umowa_probna_od": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
-            "umowa_probna_do": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
-            "umowa_okreslona_od": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
-            "umowa_okreslona_do": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
-            "a1_od": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
-            "a1_do": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
-            "ekuz_od": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
-            "ekuz_do": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
-            "badania_od": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
-            "badania_do": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
+            "umowa_probna_od": forms.DateInput(format="%Y-%m-%d", attrs={"class": "form-input", "type": "date"}),
+            "umowa_probna_do": forms.DateInput(format="%Y-%m-%d", attrs={"class": "form-input", "type": "date"}),
+            "umowa_okreslona_od": forms.DateInput(format="%Y-%m-%d", attrs={"class": "form-input", "type": "date"}),
+            "umowa_okreslona_do": forms.DateInput(format="%Y-%m-%d", attrs={"class": "form-input", "type": "date"}),
+            "a1_od": forms.DateInput(format="%Y-%m-%d", attrs={"class": "form-input", "type": "date"}),
+            "a1_do": forms.DateInput(format="%Y-%m-%d", attrs={"class": "form-input", "type": "date"}),
+            "ekuz_od": forms.DateInput(format="%Y-%m-%d", attrs={"class": "form-input", "type": "date"}),
+            "ekuz_do": forms.DateInput(format="%Y-%m-%d", attrs={"class": "form-input", "type": "date"}),
+            "badania_od": forms.DateInput(format="%Y-%m-%d", attrs={"class": "form-input", "type": "date"}),
+            "badania_do": forms.DateInput(format="%Y-%m-%d", attrs={"class": "form-input", "type": "date"}),
             "opis": forms.Textarea(attrs={"class": "form-input", "rows": 3, "placeholder": "Ogólne informacje dodatkowe..."}),
         }
 
@@ -55,8 +55,8 @@ class PracownikBudowaForm(forms.ModelForm):
         fields = ["budowa", "data_od", "data_do", "godziny"]
         widgets = {
             "budowa": forms.Select(attrs={"class": "form-input"}),
-            "data_od": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
-            "data_do": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
+            "data_od": forms.DateInput(format="%Y-%m-%d", attrs={"class": "form-input", "type": "date"}),
+            "data_do": forms.DateInput(format="%Y-%m-%d", attrs={"class": "form-input", "type": "date"}),
             "godziny": forms.NumberInput(attrs={"class": "form-input", "step": "0.1"}),
         }
 
@@ -87,8 +87,8 @@ class PojazdForm(forms.ModelForm):
             "nr_rejestracyjny": forms.TextInput(attrs={"class": "form-input"}),
             "przebieg_km": forms.NumberInput(attrs={"class": "form-input", "min": "0"}),
             "rok_produkcji": forms.NumberInput(attrs={"class": "form-input"}),
-            "data_przegladu": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
-            "data_ubezpieczenia": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
+            "data_przegladu": forms.DateInput(format="%Y-%m-%d", attrs={"class": "form-input", "type": "date"}),
+            "data_ubezpieczenia": forms.DateInput(format="%Y-%m-%d", attrs={"class": "form-input", "type": "date"}),
         }
 
 
@@ -97,7 +97,7 @@ class ZdarzenieFlotyForm(forms.ModelForm):
         model = ZdarzenieFloty
         fields = ["data", "typ", "opis", "przebieg_km", "koszt"]
         widgets = {
-            "data": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
+            "data": forms.DateInput(format="%Y-%m-%d", attrs={"class": "form-input", "type": "date"}),
             "typ": forms.Select(attrs={"class": "form-input"}),
             "opis": forms.Textarea(attrs={"class": "form-input", "rows": 3}),
             "przebieg_km": forms.NumberInput(attrs={"class": "form-input", "min": "0"}),
