@@ -4,6 +4,18 @@ from django.core.management.base import BaseCommand
 import openpyxl
 from kadry.models import Pracownik
 
+def normalize_pl(text):
+    if not text: return ""
+    text = str(text).lower().strip()
+    replacements = {
+        'ą': 'a', 'ć': 'c', 'ę': 'e', 'ł': 'l', 'ń': 'n',
+        'ó': 'o', 'ś': 's', 'ź': 'z', 'ż': 'z',
+    }
+    for pl, asc in replacements.items():
+        text = text.replace(pl, asc)
+    return text
+
+
 class Command(BaseCommand):
     help = "Importuje statusy i daty dla pracowników"
 
@@ -27,6 +39,19 @@ class Command(BaseCommand):
         updated_count = 0
         skipped_count = 0
         error_count = 0
+
+        # Wczytujemy wszystkich pracowników do słownika w celu zignorowania polskich znaków z Excelików
+        all_pracownicy = Pracownik.objects.all()
+        pracownicy_map = {}
+        for w in all_pracownicy:
+            n_nazw = normalize_pl(w.nazwisko)
+            n_imie = normalize_pl(w.imie)
+            # Lista ze względu na możliwe duplikaty imion i nazwisk
+            key = (n_imie, n_nazw)
+            if key not in pracownicy_map:
+                pracownicy_map[key] = []
+            pracownicy_map[key].append(w)
+
 
         # Funkcja parsująca ciąg "DD.MM.YYYY-DD.MM.YYYY" na (start_date, end_date)
         def parse_date_range(text):
@@ -85,7 +110,13 @@ class Command(BaseCommand):
                     skipped_count += 1
                     continue
 
-                pracownicy = list(Pracownik.objects.filter(imie__iexact=imie_val, nazwisko__iexact=nazwisko_val))
+                norm_imie = normalize_pl(imie_val)
+                norm_nazwisko = normalize_pl(nazwisko_val)
+                pracownicy = pracownicy_map.get((norm_imie, norm_nazwisko), [])
+                
+                if not pracownicy:
+                    # Spróbuj na odwrót, gdyby w Excelu najpierw szło nazwisko, a potem imię
+                    pracownicy = pracownicy_map.get((norm_nazwisko, norm_imie), [])
                 
                 if not pracownicy:
                     self.stdout.write(self.style.WARNING(f"Wiersz {row_idx}: Nie znaleziono {imie_val} {nazwisko_val} w bazie! Pomijam."))

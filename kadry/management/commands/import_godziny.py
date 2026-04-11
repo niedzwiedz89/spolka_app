@@ -4,6 +4,18 @@ from django.core.management.base import BaseCommand
 import openpyxl
 from kadry.models import Pracownik, Budowa, PracownikBudowa
 
+def normalize_pl(text):
+    if not text: return ""
+    text = str(text).lower().strip()
+    replacements = {
+        'ą': 'a', 'ć': 'c', 'ę': 'e', 'ł': 'l', 'ń': 'n',
+        'ó': 'o', 'ś': 's', 'ź': 'z', 'ż': 'z',
+    }
+    for pl, asc in replacements.items():
+        text = text.replace(pl, asc)
+    return text
+
+
 class Command(BaseCommand):
     help = "Pobiera dane dzienne z arkuszy Excel i wrzuca do PracownikBudowa"
 
@@ -43,6 +55,14 @@ class Command(BaseCommand):
         total_created = 0
         total_updated = 0
 
+        # Wczytujemy wszystkich pracowników do słownika, by móc ignorować polskie znaki
+        all_pracownicy = Pracownik.objects.all()
+        pracownicy_map = {}
+        for w in all_pracownicy:
+            n_nazw = normalize_pl(w.nazwisko)
+            n_imie = normalize_pl(w.imie)
+            pracownicy_map[(n_nazw, n_imie)] = w
+
         for fpath in files_to_process:
             self.stdout.write(f"\n--- Przetwarzanie pliku: {os.path.basename(fpath)} ---")
             try:
@@ -81,8 +101,13 @@ class Command(BaseCommand):
                         h_val = str(potential_header_row[col_idx] or "").strip()
                         if h_val and len(h_val.split()) >= 2:
                             parts = h_val.split()
-                            n_val, i_val = parts[0], parts[1]
-                            pr = Pracownik.objects.filter(nazwisko__iexact=n_val, imie__iexact=i_val).first()
+                            n_val = normalize_pl(parts[0])
+                            i_val = normalize_pl(parts[1])
+                            pr = pracownicy_map.get((n_val, i_val))
+                            if not pr:
+                                # Spróbuj na odwrót, gdyby format to było "Imię Nazwisko"
+                                pr = pracownicy_map.get((i_val, n_val))
+                                
                             if pr:
                                 temp_workers[col_idx] = pr
                         col_idx += 1  # Badamy każdą kolumnę bo struktura bywa przesunięta
