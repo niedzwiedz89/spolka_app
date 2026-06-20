@@ -97,9 +97,34 @@ def pracownik_list(request):
     page = request.GET.get("strona", 1)
     objects = paginator.get_page(page)
 
+    # ------------------------------------------------------------------
+    # Obliczanie alertów wierszy — podświetlenie pracowników wymagających uwagi
+    # Poziomy: "danger" (wygasło / brak A1), "warning" (kończy się ≤ 30 dni)
+    # ------------------------------------------------------------------
+    dzisiaj = date.today()
+    prog_ostrzezenia = 30  # dni przed wygaśnięciem A1
+
+    row_alerts = {}  # {pk: "danger"|"warning"}
+    for p in objects:
+        poziom = None
+        if p.a1_do is not None:
+            dni_do_konca = (p.a1_do - dzisiaj).days
+            if dni_do_konca < 0:
+                # A1 już wygasła
+                poziom = "danger"
+            elif dni_do_konca <= prog_ostrzezenia:
+                # A1 kończy się za mniej niż 30 dni
+                poziom = "warning"
+        elif p.a1_od is not None and p.a1_do is None:
+            # Ustawiono datę od, ale brak daty do — traktuj jako brak ważnego dokumentu
+            poziom = "warning"
+        if poziom:
+            row_alerts[p.pk] = poziom
+
     context = {
         "objects": objects,
         "module_name": "Pracownicy",
+        "row_alerts": row_alerts,
         "filters": {
             "imie": f_imie,
             "nazwisko": f_nazwisko,
