@@ -38,6 +38,11 @@ urlpatterns = [
     path("flota/<int:pojazd_pk>/zdarzenie/", views.zdarzenie_create, name="zdarzenie_create"),
     path("zdarzenie/<int:pk>/usun/", views.zdarzenie_delete, name="zdarzenie_delete"),
 
+    # Faktury (KSeF, tylko do odczytu)
+    path("faktury/", views.faktura_list, name="faktura_list"),
+    path("faktury/eksport-excel/", views.faktura_eksport_excel, name="faktura_eksport_excel"),
+    path("faktury/<str:pk>/", views.faktura_detail, name="faktura_detail"),
+
     # Załączniki (uniwersalne)
     path("zalacznik/dodaj/<int:content_type_id>/<int:object_id>/", views.zalacznik_create, name="zalacznik_create"),
     path("zalacznik/<int:pk>/usun/", views.zalacznik_delete, name="zalacznik_delete"),

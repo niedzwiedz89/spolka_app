@@ -1,0 +1,288 @@
+{% extends "kadry/base.html" %}
+
+{% block title %}{{ module_name }} {{ object.invoice_number }} – Spolka App{% endblock %}
+
+{% block content %}
+<div class="detail-view">
+    <div class="detail-header">
+        <h1 class="detail-title">{{ module_name }} {{ object.invoice_number }}</h1>
+    </div>
+
+    <div class="detail-form">
+        <div class="form-section">
+            <div class="readonly-note">
+                Dane pochodzą z KSeF i są tylko do odczytu — synchronizacja nadpisuje je automatycznie.
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label">Numer faktury:</label>
+                    <div class="readonly-value">{{ object.invoice_number }}</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Numer KSeF:</label>
+                    <div class="readonly-value readonly-mono">{{ object.ksef_number }}</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Rodzaj:</label>
+                    <div class="readonly-value">{{ object.get_subject_role_display }}</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Typ dokumentu:</label>
+                    <div class="readonly-value">
+                        {{ object.invoice_type|default:"–" }}
+                        {% if object.jest_korekta %}<span class="badge-korekta">korekta</span>{% endif %}
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Data wystawienia:</label>
+                    <div class="readonly-value">{{ object.issue_date|date:"d.m.Y"|default:"–" }}</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Tryb wysyłki:</label>
+                    <div class="readonly-value">{{ object.invoicing_mode|default:"–" }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h2 class="section-title">Strony</h2>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label">Sprzedawca:</label>
+                    <div class="readonly-value">{{ object.seller_name|default:"–" }}</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">NIP sprzedawcy:</label>
+                    <div class="readonly-value readonly-mono">{{ object.seller_nip|default:"–" }}</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Nabywca:</label>
+                    <div class="readonly-value">{{ object.buyer_name|default:"–" }}</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Identyfikator nabywcy:</label>
+                    <div class="readonly-value readonly-mono">
+                        {{ object.buyer_identifier_value|default:"–" }}
+                        {% if object.buyer_identifier_type %}({{ object.buyer_identifier_type }}){% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h2 class="section-title">Kwoty</h2>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label">Netto:</label>
+                    <div class="readonly-value readonly-amount">{{ object.net_amount|default:"–" }} {{ object.currency }}</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">VAT:</label>
+                    <div class="readonly-value readonly-amount">{{ object.vat_amount|default:"–" }} {{ object.currency }}</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Brutto:</label>
+                    <div class="readonly-value readonly-amount">{{ object.gross_amount|default:"–" }} {{ object.currency }}</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Samofakturowanie:</label>
+                    <div class="readonly-value">{{ object.is_self_invoicing|yesno:"tak,nie,–" }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h2 class="section-title">Pozycje faktury</h2>
+            {% if blad_xml %}
+            <p class="empty-info">{{ blad_xml }}</p>
+            {% elif pozycje %}
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Nazwa towaru / usługi</th>
+                            <th>J.m.</th>
+                            <th class="col-num">Ilość</th>
+                            <th class="col-num">Cena netto</th>
+                            <th class="col-num">Wartość netto</th>
+                            <th class="col-num">VAT</th>
+                            <th class="col-num">Stawka</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in pozycje %}
+                        <tr>
+                            <td>{{ p.nr }}</td>
+                            <td>{{ p.nazwa }}</td>
+                            <td>{{ p.jednostka }}</td>
+                            <td class="col-num">{{ p.ilosc }}</td>
+                            <td class="col-num">{{ p.cena_netto }}</td>
+                            <td class="col-num">{{ p.wartosc_netto }}</td>
+                            <td class="col-num">{{ p.vat_kwota }}</td>
+                            <td class="col-num">{% if p.stawka_vat %}{{ p.stawka_vat }}%{% endif %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <p class="empty-info">Pozycji: {{ pozycje|length }} — odczytane z pliku XML, element <code>FaWiersz</code> schematu FA(3).</p>
+            {% elif plik_xml %}
+            <p class="empty-info">Plik XML jest pobrany, ale nie zawiera elementów <code>FaWiersz</code>.</p>
+            {% else %}
+            <p class="empty-info">Pozycje pojawią się po pobraniu pliku XML tej faktury.</p>
+            {% endif %}
+        </div>
+
+        <div class="form-section">
+            <h2 class="section-title">Daty w KSeF</h2>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label">Przyjęcie w KSeF:</label>
+                    <div class="readonly-value">{{ object.invoicing_date|date:"d.m.Y H:i"|default:"–" }}</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Data otrzymania:</label>
+                    <div class="readonly-value">{{ object.acquisition_date|date:"d.m.Y H:i"|default:"–" }}</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Trwały zapis:</label>
+                    <div class="readonly-value">{{ object.permanent_storage_date|date:"d.m.Y H:i"|default:"–" }}</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Pobrano do bazy:</label>
+                    <div class="readonly-value">{{ object.first_seen_at|date:"d.m.Y H:i"|default:"–" }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h2 class="section-title">Plik źródłowy XML</h2>
+            {% if plik_xml %}
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label">Rozmiar:</label>
+                    <div class="readonly-value">{{ plik_xml.byte_size }} B</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Skrót SHA-256 zgodny:</label>
+                    <div class="readonly-value">
+                        {% if plik_xml.hash_verified %}✅ tak{% elif plik_xml.hash_verified is False %}❌ nie{% else %}– brak odniesienia{% endif %}
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Pobrano:</label>
+                    <div class="readonly-value">{{ plik_xml.downloaded_at|date:"d.m.Y H:i" }}</div>
+                </div>
+            </div>
+            {% else %}
+            <p class="empty-info">
+                XML jeszcze nie został pobrany. KSeF ogranicza pobieranie plików do 64 na godzinę,
+                więc zaległość nadrabiana jest partiami przez synchronizację.
+            </p>
+            {% endif %}
+        </div>
+
+        {% if korekty %}
+        <div class="form-section">
+            <h2 class="section-title">Korekty tej faktury</h2>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Data wystawienia</th>
+                            <th>Numer faktury</th>
+                            <th>Typ</th>
+                            <th>Netto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for k in korekty %}
+                        <tr class="data-row" data-url="{% url 'faktura_detail' pk=k.pk %}">
+                            <td>{{ k.issue_date|date:"d.m.Y" }}</td>
+                            <td>{{ k.invoice_number }}</td>
+                            <td>{{ k.invoice_type }}</td>
+                            <td>{{ k.net_amount }} {{ k.currency }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="form-actions">
+            <a href="{% url list_url_name %}" class="btn btn-cancel">✕ Koniec</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.querySelectorAll('.data-row').forEach(function (row) {
+        row.addEventListener('dblclick', function () {
+            window.location.href = this.dataset.url;
+        });
+    });
+</script>
+
+<style>
+    .readonly-note {
+        background-color: var(--primary-bg);
+        border-left: 3px solid var(--primary);
+        padding: 10px 14px;
+        margin-bottom: 18px;
+        font-size: 0.85rem;
+        color: var(--text-muted, #666);
+        border-radius: 4px;
+    }
+    .readonly-value {
+        padding: 8px 10px;
+        background-color: #f8f9fa;
+        border: 1px solid #e5e7eb;
+        border-radius: 4px;
+        min-height: 20px;
+        font-size: 0.9rem;
+    }
+    .readonly-mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.82rem;
+    }
+    .readonly-amount {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+    }
+    .section-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--primary);
+        margin: 22px 0 12px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    .badge-korekta {
+        display: inline-block;
+        margin-left: 8px;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        background-color: rgba(217, 119, 6, 0.14);
+        border: 1px solid rgba(217, 119, 6, 0.45);
+        color: #92400e;
+    }
+    .empty-info {
+        font-size: 0.87rem;
+        color: var(--text-muted, #777);
+        padding: 10px 0;
+    }
+    .col-num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+</style>
+{% endblock %}

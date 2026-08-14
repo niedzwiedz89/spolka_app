@@ -170,6 +170,70 @@ class ZdarzenieFloty(models.Model):
         return f"{self.get_typ_display()} – {self.pojazd} ({self.data})"
 
 
+class Faktura(models.Model):
+    """Faktura z KSeF. Tabela `ksef.invoices` zasilana synchronizacją ksef-sync, tylko do odczytu."""
+
+    ROLA_CHOICES = [
+        ("buyer", "Zakup"),
+        ("seller", "Sprzedaż"),
+    ]
+
+    ksef_number = models.CharField("Numer KSeF", max_length=64, primary_key=True)
+    invoice_number = models.CharField("Numer faktury", max_length=256)
+    subject_role = models.CharField("Rodzaj", max_length=10, choices=ROLA_CHOICES)
+    issue_date = models.DateField("Data wystawienia", null=True)
+    invoicing_date = models.DateTimeField("Przyjęcie w KSeF", null=True)
+    acquisition_date = models.DateTimeField("Data otrzymania", null=True)
+    permanent_storage_date = models.DateTimeField("Trwały zapis w KSeF", null=True)
+    seller_nip = models.CharField("NIP sprzedawcy", max_length=20, null=True)
+    seller_name = models.CharField("Sprzedawca", max_length=512, null=True)
+    buyer_identifier_type = models.CharField("Typ id. nabywcy", max_length=20, null=True)
+    buyer_identifier_value = models.CharField("NIP nabywcy", max_length=50, null=True)
+    buyer_name = models.CharField("Nabywca", max_length=512, null=True)
+    net_amount = models.DecimalField("Netto", max_digits=18, decimal_places=2, null=True)
+    gross_amount = models.DecimalField("Brutto", max_digits=18, decimal_places=2, null=True)
+    vat_amount = models.DecimalField("VAT", max_digits=18, decimal_places=2, null=True)
+    currency = models.CharField("Waluta", max_length=8, null=True)
+    invoicing_mode = models.CharField("Tryb wysyłki", max_length=16, null=True)
+    invoice_type = models.CharField("Typ", max_length=16, null=True)
+    is_self_invoicing = models.BooleanField("Samofakturowanie", null=True)
+    has_attachment = models.BooleanField("Ma załącznik", null=True)
+    invoice_hash = models.CharField("Skrót faktury", max_length=128, null=True)
+    hash_of_corrected_invoice = models.CharField("Skrót faktury korygowanej", max_length=128, null=True)
+    first_seen_at = models.DateTimeField("Pobrano", null=True)
+    updated_at = models.DateTimeField("Aktualizacja", null=True)
+
+    class Meta:
+        managed = False
+        db_table = '"ksef"."invoices"'
+        verbose_name = "Faktura"
+        verbose_name_plural = "Faktury"
+        ordering = ["-issue_date", "invoice_number"]
+
+    def __str__(self):
+        return f"{self.invoice_number} ({self.seller_name})"
+
+    @property
+    def jest_korekta(self):
+        return self.invoice_type in ("Kor", "KorZal", "KorRoz")
+
+
+class FakturaXml(models.Model):
+    """Metadane pobranego pliku XML faktury. Kolumna `xml` celowo pominięta, by nie ciągnąć blobu."""
+
+    ksef_number = models.CharField("Numer KSeF", max_length=64, primary_key=True)
+    byte_size = models.IntegerField("Rozmiar (B)")
+    sha256_base64 = models.CharField("SHA-256", max_length=128, null=True)
+    hash_verified = models.BooleanField("Skrót zgodny", null=True)
+    downloaded_at = models.DateTimeField("Pobrano")
+
+    class Meta:
+        managed = False
+        db_table = '"ksef"."invoice_xml"'
+        verbose_name = "Plik XML faktury"
+        verbose_name_plural = "Pliki XML faktur"
+
+
 class Zalacznik(models.Model):
     """Uniwersalny model załącznika pozwalający podpinać pliki pod dowolny obiekt."""
 

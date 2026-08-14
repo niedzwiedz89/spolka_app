@@ -1,20 +1,25 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.contrib import messages as django_messages
 from django.contrib.contenttypes.models import ContentType
 from django.http import HttpResponse
 import io
 import calendar
+import xml.etree.ElementTree as ET
 from datetime import date
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
-from .models import Pracownik, Budowa, PracownikBudowa, Mieszkanie, Pojazd, ZdarzenieFloty, Zalacznik
+from .models import (
+    Pracownik, Budowa, PracownikBudowa, Mieszkanie, Pojazd, ZdarzenieFloty,
+    Zalacznik, Faktura, FakturaXml,
+)
 from .forms import (
     PracownikForm, BudowaForm, PracownikBudowaForm,
     MieszkanieForm, PojazdForm, ZdarzenieFlotyForm, ZalacznikForm
 )
+from .ksef_xml import pozycje_faktury, wczytaj_xml
 
 
 # =============================================================================
@@ -66,6 +71,7 @@ def dashboard(request):
         "budowy": Budowa.objects.count(),
         "mieszkania": Mieszkanie.objects.count(),
         "pojazdy": Pojazd.objects.count(),
+        "faktury": Faktura.objects.count(),
     }
     return render(request, "kadry/dashboard.html", {"stats": stats})
 
@@ -147,7 +153,9 @@ def pracownik_list(request):
             {
                 "id": "raport_obecnosci",
                 "label": "📊 Generuj raport obecności (Excel)",
-                "url": reverse("pracownik_raport_budowy")
+                "url": reverse("pracownik_raport_budowy"),
+                "id_field": "pracownik_ids",
+                "needs_month": True,
             }
         ],
     }
@@ -714,6 +722,224 @@ def zdarzenie_delete(request, pk):
 # =============================================================================
 # ZAŁĄCZNIKI (WIRTUALNE/GENERIC)
 # =============================================================================
+
+def _data_lub_none(value):
+    try:
+        return date.fromisoformat(value)
+    except (ValueError, TypeError):
+        return None
+
+
+def _zakres_dat(miesiac, od, do):
+    """Zamienia filtr miesiąca (YYYY-MM) lub parę dat na zakres. Miesiąc ma pierwszeństwo."""
+    if miesiac:
+        try:
+            rok, mies = (int(x) for x in miesiac.split("-"))
+            return date(rok, mies, 1), date(rok, mies, calendar.monthrange(rok, mies)[1])
+        except (ValueError, TypeError, calendar.IllegalMonthError):
+            return None, None
+    return _data_lub_none(od), _data_lub_none(do)
+
+
+def _rola_z_filtra(value):
+    """Pozwala filtrować rodzaj faktury po polskiej etykiecie widocznej w tabeli."""
+    v = (value or "").strip().strip("%").lower()
+    if v and ("zakup".startswith(v) or v.startswith("zakup") or v.startswith("kosz")):
+        return "buyer"
+    if v and ("sprzedaż".startswith(v) or v.startswith("sprzeda") or v.startswith("sprzedaz")):
+        return "seller"
+    return None
+
+
+def faktura_list(request):
+    """Lista faktur z KSeF z filtrami."""
+    qs = Faktura.objects.all()
+
+    f_numer = request.GET.get("invoice_number", "")
+    f_sprzedawca = request.GET.get("seller_name", "")
+    f_nip = request.GET.get("seller_nip", "")
+    f_typ = request.GET.get("invoice_type", "")
+    f_rola = request.GET.get("subject_role", "")
+    f_miesiac = request.GET.get("miesiac", "")
+    f_od = request.GET.get("data_od", "")
+    f_do = request.GET.get("data_do", "")
+
+    data_od, data_do = _zakres_dat(f_miesiac, f_od, f_do)
+    if data_od:
+        qs = qs.filter(issue_date__gte=data_od)
+    if data_do:
+        qs = qs.filter(issue_date__lte=data_do)
+
+    if f_numer:
+        qs = qs.filter(get_wildcard_filter("invoice_number", f_numer))
+    if f_sprzedawca:
+        qs = qs.filter(get_wildcard_filter("seller_name", f_sprzedawca))
+    if f_nip:
+        qs = qs.filter(get_wildcard_filter("seller_nip", f_nip))
+    if f_typ:
+        qs = qs.filter(get_wildcard_filter("invoice_type", f_typ))
+    if f_rola:
+        rola = _rola_z_filtra(f_rola)
+        qs = qs.filter(subject_role=rola) if rola else qs.filter(
+            get_wildcard_filter("subject_role", f_rola)
+        )
+
+    paginator = Paginator(qs, 50)
+    page = request.GET.get("strona", 1)
+    objects = paginator.get_page(page)
+
+    context = {
+        "objects": objects,
+        "module_name": "Faktury",
+        "filters": {
+            "invoice_number": f_numer,
+            "seller_name": f_sprzedawca,
+            "seller_nip": f_nip,
+            "invoice_type": f_typ,
+            "subject_role": f_rola,
+        },
+        "columns": [
+            ("issue_date", "Data wystawienia"),
+            ("invoice_number", "Numer faktury"),
+            ("subject_role", "Rodzaj"),
+            ("seller_name", "Sprzedawca"),
+            ("seller_nip", "NIP sprzedawcy"),
+            ("invoice_type", "Typ"),
+            ("net_amount", "Netto"),
+            ("vat_amount", "VAT"),
+            ("gross_amount", "Brutto"),
+        ],
+        "date_filter": {
+            "label": "Data wystawienia",
+            "miesiac": f_miesiac,
+            "data_od": f_od,
+            "data_do": f_do,
+        },
+        "podsumowanie": qs.aggregate(
+            netto=Sum("net_amount"), vat=Sum("vat_amount"), brutto=Sum("gross_amount")
+        ),
+        "detail_url_name": "faktura_detail",
+        "bulk_actions": [
+            {
+                "id": "eksport_excel",
+                "label": "📊 Eksportuj zaznaczone do Excela",
+                "url": reverse("faktura_eksport_excel"),
+                "id_field": "faktura_ids",
+                "needs_month": False,
+            }
+        ],
+    }
+    return render(request, "kadry/list.html", context)
+
+
+def faktura_eksport_excel(request):
+    """Eksport zaznaczonych faktur do pliku XLSX."""
+    if request.method != "POST":
+        return redirect("faktura_list")
+
+    ids = request.POST.getlist("faktura_ids")
+    if not ids:
+        django_messages.error(request, "Nie wybrano żadnych faktur.")
+        return redirect("faktura_list")
+
+    faktury = list(Faktura.objects.filter(pk__in=ids))
+    if not faktury:
+        django_messages.error(request, "Brak pasujących faktur w bazie.")
+        return redirect("faktura_list")
+
+    naglowki = [
+        ("Data wystawienia", 16), ("Numer faktury", 26), ("Rodzaj", 10), ("Typ", 8),
+        ("Sprzedawca", 42), ("NIP sprzedawcy", 15), ("Nabywca", 42),
+        ("Netto", 14), ("VAT", 14), ("Brutto", 14), ("Waluta", 8),
+        ("Tryb", 10), ("Numer KSeF", 38),
+    ]
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Faktury KSeF"
+
+    header_font = Font(bold=True)
+    header_fill = PatternFill(start_color="F5F5F5", end_color="F5F5F5", fill_type="solid")
+    center = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+    for kol, (etykieta, szerokosc) in enumerate(naglowki, start=1):
+        cell = ws.cell(row=1, column=kol, value=etykieta)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center
+        ws.column_dimensions[openpyxl.utils.get_column_letter(kol)].width = szerokosc
+
+    for wiersz, f in enumerate(faktury, start=2):
+        ws.cell(row=wiersz, column=1, value=f.issue_date).number_format = "DD.MM.YYYY"
+        ws.cell(row=wiersz, column=2, value=f.invoice_number)
+        ws.cell(row=wiersz, column=3, value=f.get_subject_role_display())
+        ws.cell(row=wiersz, column=4, value=f.invoice_type)
+        ws.cell(row=wiersz, column=5, value=f.seller_name)
+        ws.cell(row=wiersz, column=6, value=f.seller_nip)
+        ws.cell(row=wiersz, column=7, value=f.buyer_name)
+        for kol, wartosc in ((8, f.net_amount), (9, f.vat_amount), (10, f.gross_amount)):
+            cell = ws.cell(row=wiersz, column=kol,
+                           value=float(wartosc) if wartosc is not None else None)
+            cell.number_format = "#,##0.00"
+        ws.cell(row=wiersz, column=11, value=f.currency)
+        ws.cell(row=wiersz, column=12, value=f.invoicing_mode)
+        ws.cell(row=wiersz, column=13, value=f.ksef_number)
+
+    suma_wiersz = len(faktury) + 2
+    ws.cell(row=suma_wiersz, column=7, value="Razem").font = header_font
+    for kol in (8, 9, 10):
+        litera = openpyxl.utils.get_column_letter(kol)
+        cell = ws.cell(row=suma_wiersz, column=kol,
+                       value=f"=SUM({litera}2:{litera}{suma_wiersz - 1})")
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.number_format = "#,##0.00"
+
+    ws.freeze_panes = "A2"
+    ws.auto_filter.ref = f"A1:{openpyxl.utils.get_column_letter(len(naglowki))}{suma_wiersz - 1}"
+
+    file_bytes = io.BytesIO()
+    wb.save(file_bytes)
+    file_bytes.seek(0)
+
+    response = HttpResponse(
+        file_bytes.read(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = (
+        f'attachment; filename="FakturyKSeF_{date.today():%Y%m%d}.xlsx"'
+    )
+    return response
+
+
+def faktura_detail(request, pk):
+    """Szczegóły faktury z KSeF (tylko do odczytu)."""
+    obj = get_object_or_404(Faktura, pk=pk)
+    plik_xml = FakturaXml.objects.filter(pk=obj.pk).first()
+
+    pozycje, blad_xml = [], None
+    if plik_xml:
+        try:
+            zawartosc = wczytaj_xml(obj.pk)
+            pozycje = pozycje_faktury(zawartosc) if zawartosc else []
+        except ET.ParseError as exc:
+            blad_xml = f"Nie udało się odczytać XML: {exc}"
+
+    korekty = []
+    if obj.invoice_hash:
+        korekty = list(Faktura.objects.filter(hash_of_corrected_invoice=obj.invoice_hash))
+
+    context = {
+        "object": obj,
+        "module_name": "Faktura",
+        "list_url_name": "faktura_list",
+        "plik_xml": plik_xml,
+        "pozycje": pozycje,
+        "blad_xml": blad_xml,
+        "korekty": korekty,
+    }
+    return render(request, "kadry/faktura_detail.html", context)
+
 
 def zalacznik_create(request, content_type_id, object_id):
     """Uniwersalne dodawanie pliku do dowolnego obiektu."""
